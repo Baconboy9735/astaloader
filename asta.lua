@@ -242,6 +242,7 @@ task.spawn(function()
             task.wait(10)
             if not checkAnyVisible() then
                 pcall(function()
+                    QueueOnTeleport()
                     TeleportService:Teleport(13379208636, player)
                 end)
             end
@@ -351,6 +352,46 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
+
+-- ============================================================
+-- Queue On Teleport
+-- ============================================================
+local QUEUE_SCRIPT_URL = 'https://raw.githubusercontent.com/Baconboy9735/astaloader/refs/heads/main/asta.lua'
+local QueueOnTeleportEnabled = false
+
+local function QueueOnTeleport()
+    if not QueueOnTeleportEnabled then
+        return false
+    end
+
+    local queue = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport)
+    if type(queue) ~= "function" then
+        warn("[TownShip] queue_on_teleport API not found in this executor")
+        return false
+    end
+
+    local payload = string.format([[
+        local url = %q
+        local ok, err = pcall(function()
+            loadstring(game:HttpGet(url))()
+        end)
+        if not ok then
+            warn("[TownShip] Queue loader failed:", err)
+        end
+    ]], QUEUE_SCRIPT_URL)
+
+    local ok, err = pcall(queue, payload)
+    if ok then
+        print("[TownShip] Queue On Teleport registered")
+        return true
+    end
+
+    warn("[TownShip] Failed to register Queue On Teleport:", err)
+    return false
+end
+
+getgenv().QueueOnTeleport = QueueOnTeleport
+
 local VIM = game:GetService("VirtualInputManager")
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
@@ -3365,6 +3406,7 @@ if IsLobbyLobby() then
             if alreadyTeleported then return end
             alreadyTeleported = true
             task.wait(0.1)
+            QueueOnTeleport()
             pcall(function() TeleportService:Teleport(LOBBY_ID, player) end)
         end
         
@@ -3875,6 +3917,7 @@ if IsMainmenuLobby() or IsLobbyLobby() then
     local tab = Tabs.MainMenu or Tabs.Lobby
     local g = tab:AddLeftGroupbox("Teleport Now")
     local l = g:AddLabel("")
+    QueueOnTeleport()
     local function DoTP(id) pcall(function() TeleportService:Teleport(id, Player) end) end
     local function AddConfirm(name, id, time)
         local c = false
@@ -3937,6 +3980,7 @@ if IsMainmenuLobby() or IsLobbyLobby() then
                 and ReplicatedStorage.Assets:FindFirstChild("Remotes")
                 and ReplicatedStorage.Assets.Remotes:FindFirstChild("POST")
             if POST then
+                QueueOnTeleport()
                 POST:FireServer("Functions", "Teleport", "Menu", nil)
             end
         end)
@@ -3950,6 +3994,7 @@ if IsMainmenuLobby() or IsLobbyLobby() then
             end
         end)
         task.wait(1)
+        QueueOnTeleport()
         pcall(function() TeleportService:Teleport(MAIN_MENU_ID, Player) end)
     end
     
@@ -9006,6 +9051,7 @@ end)
 MissionReturnGroup:AddButton("Force Return Now", function()
     isReturning = true
     pcall(function()
+        QueueOnTeleport()
         TeleportService:Teleport(MAIN_MENU_ID, Player)
     end)
 end)
@@ -9015,6 +9061,7 @@ end)
         local c = false
         TeleportGroup:AddButton(name, function()
             if c then
+                QueueOnTeleport()
                 pcall(function() TeleportService:Teleport(id, Player) end)
             else
                 c = true
@@ -9075,6 +9122,28 @@ end)
         end
     })
 
+    TeleportGroup:AddDivider()
+    TeleportGroup:AddToggle("QueueOnTeleportToggle", {
+        Text = "Queue On Teleport",
+        Default = false,
+        Callback = function(v)
+            QueueOnTeleportEnabled = v == true
+            getgenv().QueueOnTeleportEnabled = QueueOnTeleportEnabled
+
+            if QueueOnTeleportEnabled then
+                local registered = QueueOnTeleport()
+                if registered then
+                    Library:Notify("Queue On Teleport: Registered", 3)
+                else
+                    Library:Notify("Queue On Teleport: Failed", 5)
+                end
+            else
+                Library:Notify("Queue On Teleport: Disabled", 3)
+            end
+        end
+    })
+
+
     local function tryLeaveMission()
         pcall(function()
             local GET = ReplicatedStorage:FindFirstChild("Assets")
@@ -9089,7 +9158,9 @@ end)
                 and ReplicatedStorage.Assets:FindFirstChild("Remotes")
                 and ReplicatedStorage.Assets.Remotes:FindFirstChild("POST")
             if POST then
+                QueueOnTeleport()
                 POST:FireServer("Functions", "Teleport", "Menu", nil)
+                QueueOnTeleport()
                 POST:FireServer("Functions", "Teleport", "Lobby", nil)
             end
         end)
@@ -9099,9 +9170,11 @@ end)
         teleportAttempts = teleportAttempts + 1
         tryLeaveMission()
         task.wait(1.2)
+        QueueOnTeleport()
         pcall(function() TeleportService:Teleport(MAIN_MENU_ID, Player) end)
         task.delay(4, function()
             if game.PlaceId ~= MAIN_MENU_ID and game.PlaceId ~= LOBBY_ID then
+                QueueOnTeleport()
                 pcall(function() TeleportService:Teleport(MAIN_MENU_ID, Player) end)
             end
         end)
@@ -9114,9 +9187,11 @@ end)
         teleportAttempts = teleportAttempts + 1
         tryLeaveMission()
         task.wait(1.2)
+        QueueOnTeleport()
         pcall(function() TeleportService:Teleport(LOBBY_ID, Player) end)
         task.delay(4, function()
             if game.PlaceId ~= LOBBY_ID and game.PlaceId ~= MAIN_MENU_ID then
+                QueueOnTeleport()
                 pcall(function() TeleportService:Teleport(LOBBY_ID, Player) end)
             end
         end)
@@ -11049,12 +11124,14 @@ task.spawn(function()
                 end)
                
                 pcall(function()
+                    QueueOnTeleport()
                     TeleportService:Teleport(LOBBY_ID, Player)
                 end)
                
                 task.delay(5, function()
                     if game.PlaceId ~= LOBBY_ID then
                         pcall(function()
+                            QueueOnTeleport()
                             TeleportService:Teleport(LOBBY_ID, Player)
                         end)
                     end
